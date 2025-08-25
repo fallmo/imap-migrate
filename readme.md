@@ -1,4 +1,4 @@
-# IMAP MIGRATE GMAIL -\>  HERITAGE
+# IMAP MIGRATE GMAIL -\> HERITAGE
 
 ### Prerequisites
 
@@ -10,7 +10,7 @@
 2. Download the program
 
 ```
-curl -L -o mail-migrate-windows-amd64.exe https://raw.githubusercontent.com/fallmo/imap-migrate/refs/heads/main/dist/mail-migrate-windows-amd64.exe
+curl -o mail-migrate-windows-amd64.exe https://raw.githubusercontent.com/fallmo/imap-migrate/refs/heads/main/dist/mail-migrate-windows-amd64.exe
 ```
 
 3. Run the program
