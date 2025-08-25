@@ -1,4 +1,4 @@
-# IMAP MIGRATE GMAIL -<>
+# IMAP MIGRATE GMAIL -\>  HERITAGE
 
 ### Prerequisites
 
