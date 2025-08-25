@@ -37,12 +37,12 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	srcServer := "imap.gmail.com:993"
 	dstServer := "smtp.heritage.africa:993"
-	dstPass := "Accel@2025"
 	mboxPattern := "*"
 	batchSize := 200
 
 	var srcUser string
 	var srcPass string
+	var dstPass string
 	var reusingCache bool
 
 	fmt.Println("Welcome fellow change maker. This program will copy your mails from gmail onto heritage. Before we begin, we will need some information.")
@@ -57,6 +57,7 @@ func main() {
 			reusingCache = true
 			srcUser = cachedUserData.Email
 			srcPass = cachedUserData.AppPassword
+			dstPass = cachedUserData.DestPassword
 		case "no":
 			clearCachedData()
 			reusingCache = false
@@ -75,6 +76,10 @@ func main() {
 		fmt.Print("Your google app password: ")
 		srcPass, _ = reader.ReadString('\n')
 		srcPass = strings.TrimSpace(srcPass)
+
+		fmt.Print("Your heritage omni365 password: ")
+		dstPass, _ = reader.ReadString('\n')
+		dstPass = strings.TrimSpace(dstPass)
 	}
 
 	fmt.Println("Connecting to google...")
@@ -87,7 +92,7 @@ func main() {
 	check(err)
 	defer dst.Logout()
 
-	setCacheData(srcUser, srcPass)
+	setCacheData(cachedData{Email: srcUser, AppPassword: srcPass, DestPassword: dstPass})
 	fmt.Print("\nConnections Succesful.\nCredentials cached for subsequent executions.\nPress enter to begin mail synchronization\nThis process may take up to 45 minutes. In case of an error, just rerun the program.")
 	_, _ = reader.ReadString('\n')
 
@@ -280,8 +285,9 @@ func check(err error) {
 const cacheFileName = ".imap_data_cache.json"
 
 type cachedData struct {
-	Email       string `json:"email"`
-	AppPassword string `json:"app_password"`
+	Email        string `json:"email"`
+	AppPassword  string `json:"app_password"`
+	DestPassword string `json:"dest_password"`
 }
 
 func getCacheData() *cachedData {
@@ -302,12 +308,7 @@ func getCacheData() *cachedData {
 
 }
 
-func setCacheData(email string, password string) error {
-	data := cachedData{
-		Email:       email,
-		AppPassword: password,
-	}
-
+func setCacheData(data cachedData) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return err
