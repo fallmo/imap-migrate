@@ -30,7 +30,9 @@ func main() {
 	srcUser, _ := reader.ReadString('\n')
 	srcUser = strings.TrimSpace(srcUser)
 
-	srcPass := readPasswordMasked("Your google app password: ")
+	fmt.Print("Your google app password: ")
+	srcPass, _ := reader.ReadString('\n')
+	srcPass = strings.TrimSpace(srcPass)
 
 	fmt.Println("Connecting to google...")
 	src, err := dialIMAP(srcServer, srcUser, srcPass, true)
