@@ -38,7 +38,8 @@ func main() {
 	srcServer := "imap.gmail.com:993"
 	dstServer := "smtp.heritage.africa:993"
 	mboxPattern := "*"
-	batchSize := 200
+	batchSize := 25
+	restoredBatch := 0
 
 	var srcUser string
 	var srcPass string
@@ -48,7 +49,7 @@ func main() {
 	fmt.Println("Welcome fellow change maker. This program will copy your mails from gmail onto heritage. Before we begin, we will need some information.")
 
 	cachedUserData := getCacheData()
-	if cachedUserData != nil {
+	if cachedUserData != nil && cachedUserData.Email != "" {
 		fmt.Printf("Reuse existing email and app assword for '%s'? (yes/no): (default yes)", cachedUserData.Email)
 		reuse, _ := reader.ReadString('\n')
 		reuse = strings.TrimSpace(reuse)
@@ -65,7 +66,11 @@ func main() {
 			fmt.Println("Expects 'yes' or 'no'")
 			os.Exit(1)
 		}
+	}
 
+	if cachedUserData != nil && cachedUserData.LastBatch != 0 {
+		restoredBatch = cachedUserData.LastBatch
+		fmt.Printf("Resuming sync from batch %d\n", cachedUserData.LastBatch)
 	}
 
 	if !reusingCache {
@@ -92,8 +97,8 @@ func main() {
 	check(err)
 	defer dst.Logout()
 
-	setCacheData(cachedData{Email: srcUser, AppPassword: srcPass, DestPassword: dstPass})
-	fmt.Print("\nConnections Succesful.\nCredentials cached for subsequent executions.\nPress enter to begin mail synchronization\nThis process may take up to 45 minutes. In case of an error, just rerun the program.")
+	setCacheData(cachedData{Email: srcUser, AppPassword: srcPass, DestPassword: dstPass, LastBatch: restoredBatch})
+	fmt.Print("\nConnections Succesful.\nCredentials cached for subsequent executions.\nThis process may take up to 45 minutes. In case of an error, just rerun the program.\n\nPress enter to begin mail synchronization")
 	_, _ = reader.ReadString('\n')
 
 	fmt.Println("Listing mailboxes...")
@@ -101,7 +106,7 @@ func main() {
 
 	for _, m := range mboxes {
 		fmt.Printf("Syncing mailbox: %s\n", m)
-		moved, skipped, err := syncMailbox(src, dst, m, batchSize)
+		moved, skipped, err := syncMailbox(src, dst, m, batchSize, restoredBatch)
 		if err != nil {
 			log.Printf("Error syncing %s: %v", m, err)
 			continue
@@ -165,7 +170,7 @@ func listMailboxes(c *client.Client, pattern string) []string {
 	return mboxes
 }
 
-func syncMailbox(src, dst *client.Client, name string, batchSize int) (int, int, error) {
+func syncMailbox(src, dst *client.Client, name string, batchSize int, restoredBatch int) (int, int, error) {
 	dstName := resolveMailbox(name)
 
 	mbox, err := src.Select(name, true)
@@ -188,7 +193,8 @@ func syncMailbox(src, dst *client.Client, name string, batchSize int) (int, int,
 
 	moved := 0
 	skipped := 0
-	var from uint32 = 1
+	batch := restoredBatch
+	var from uint32 = uint32(1 + (batch * batchSize))
 	for from <= mbox.Messages {
 		to := from + uint32(batchSize) - 1
 		if to > mbox.Messages {
@@ -197,6 +203,8 @@ func syncMailbox(src, dst *client.Client, name string, batchSize int) (int, int,
 		if err := copyBatch(src, dst, name, from, to, total, &moved, &skipped); err != nil {
 			return moved, skipped, err
 		}
+		cacheLastBatch(batch + 1)
+		batch = batch + 1
 		from = to + 1
 	}
 	return moved, skipped, nil
@@ -288,6 +296,7 @@ type cachedData struct {
 	Email        string `json:"email"`
 	AppPassword  string `json:"app_password"`
 	DestPassword string `json:"dest_password"`
+	LastBatch    int    `json:"last_batch"`
 }
 
 func getCacheData() *cachedData {
@@ -316,6 +325,17 @@ func setCacheData(data cachedData) error {
 
 	err = os.WriteFile(cacheFileName, bytes, 0660)
 	return err
+}
+
+func cacheLastBatch(batchNumber int) {
+	data := getCacheData()
+	if data != nil {
+		data.LastBatch = batchNumber
+	} else {
+		data = &cachedData{LastBatch: batchNumber}
+	}
+
+	setCacheData(*data)
 }
 
 func clearCachedData() error {
